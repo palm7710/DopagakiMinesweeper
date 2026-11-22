@@ -101,12 +101,12 @@ struct GameView: View {
 
             if game.combo >= 2 {
                 Text("x\(game.combo) COMBO!!")
-                    .font(AppFont.display(18))
+                    .font(AppFont.display(16))
                     .phaseAnimator([1.0, 1.25, 1.0], trigger: game.combo) { view, scale in
                         view.scaleEffect(scale)
                     } animation: { _ in .spring(response: 0.12, dampingFraction: 0.5) }
-                    .sticker(Palette.pink, rotation: 10)
-                    .offset(y: 6)
+                    .sticker(Palette.pink, rotation: 8)
+                    .offset(x: 4, y: -12)
                     .transition(.scale(scale: 0.2).combined(with: .opacity))
             }
         }

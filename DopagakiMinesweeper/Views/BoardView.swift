@@ -1,7 +1,30 @@
 import SwiftUI
 
-struct BoardView: View {
-    let game: GameViewModel
+/// 盤面を表示・操作するのに必要なもの（通常モードと刺激モードで共通）
+@MainActor
+protocol BoardDriving: AnyObject {
+    var board: Board { get }
+    var popups: [Popup] { get }
+    var freshDepth: [Int: Int] { get }
+    var explodedIndex: Int? { get }
+    var revealMines: Bool { get }
+    var radarPing: Int? { get }
+    /// 刺激モードのラッキーマス・777マス（通常モードでは空）
+    var luckyCells: Set<Int> { get }
+    var slotCells: Set<Int> { get }
+    func tap(_ i: Int)
+    func longPress(_ i: Int)
+}
+
+extension BoardDriving {
+    var luckyCells: Set<Int> { [] }
+    var slotCells: Set<Int> { [] }
+}
+
+extension GameViewModel: BoardDriving {}
+
+struct BoardView<Game: BoardDriving>: View {
+    let game: Game
 
     private let gap: CGFloat = 4
     private let pad: CGFloat = 8
@@ -49,7 +72,9 @@ struct BoardView: View {
             freshDepth: game.freshDepth[i],
             exploded: game.explodedIndex == i,
             revealMine: game.revealMines,
-            pinged: game.radarPing == i
+            pinged: game.radarPing == i,
+            lucky: game.luckyCells.contains(i),
+            slot: game.slotCells.contains(i)
         )
         .contentShape(Rectangle())
         .onTapGesture { game.tap(i) }
@@ -63,7 +88,11 @@ struct BoardView: View {
     private func accessibilityText(_ cell: Cell, index i: Int) -> String {
         let pos = "\(game.board.row(of: i) + 1)行\(game.board.col(of: i) + 1)列"
         if cell.isFlagged { return "\(pos) 旗" }
-        if !cell.isOpen { return "\(pos) 未開封" }
+        if !cell.isOpen {
+            if game.luckyCells.contains(i) { return "\(pos) ラッキーマス" }
+            if game.slotCells.contains(i) { return "\(pos) 777マス" }
+            return "\(pos) 未開封"
+        }
         if cell.isMine { return "\(pos) 地雷" }
         return cell.adjacent == 0 ? "\(pos) 空白" : "\(pos) \(cell.adjacent)"
     }
@@ -76,6 +105,8 @@ struct CellView: View {
     var exploded = false
     var revealMine = false
     var pinged = false
+    var lucky = false
+    var slot = false
 
     private var corner: CGFloat { size * 0.2 }
 
@@ -90,6 +121,10 @@ struct CellView: View {
             } else if revealMine && cell.isMine {
                 hiddenMineFace
                     .transition(.scale(scale: 0.4).combined(with: .opacity))
+            } else if lucky {
+                luckyFace
+            } else if slot {
+                slotFace
             } else {
                 tileFace
             }
@@ -124,6 +159,38 @@ struct CellView: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: corner))
             .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(Color.black, lineWidth: 2))
+    }
+
+    private var luckyFace: some View {
+        RoundedRectangle(cornerRadius: corner)
+            .fill(Palette.orange)
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: corner)
+                    .fill(Palette.yellow)
+                    .padding(.bottom, size * 0.11)
+            }
+            .overlay {
+                Image(systemName: "sparkles")
+                    .font(.system(size: size * 0.42, weight: .black))
+                    .foregroundStyle(.white)
+                    .shadow(color: Palette.orange, radius: 0, x: 1, y: 1)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: corner))
+            .overlay(RoundedRectangle(cornerRadius: corner).strokeBorder(Color.black, lineWidth: 2))
+            .phaseAnimator([false, true]) { view, glow in
+                view.shadow(color: Palette.yellow.opacity(glow ? 0.9 : 0.2), radius: glow ? 8 : 2)
+            } animation: { _ in .easeInOut(duration: 0.6) }
+    }
+
+    private var slotFace: some View {
+        tileFace
+            .overlay {
+                Text("777")
+                    .font(AppFont.display(size * 0.3))
+                    .foregroundStyle(Palette.yellow)
+                    .shadow(color: .black, radius: 0, x: 1, y: 1)
+                    .padding(.bottom, size * 0.1)
+            }
     }
 
     private var openFace: some View {

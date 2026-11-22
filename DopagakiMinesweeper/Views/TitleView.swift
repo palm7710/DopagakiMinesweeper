@@ -3,6 +3,7 @@ import SwiftUI
 struct TitleView: View {
     @Binding var difficulty: Difficulty
     var onPlay: () -> Void
+    var onStim: () -> Void = {}
 
     @Environment(PlayerProgress.self) private var progress
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -16,6 +17,7 @@ struct TitleView: View {
             sampleTiles
             Spacer(minLength: 0)
             playButton
+            stimButton
             difficultyPicker
             levelBar
         }
@@ -123,6 +125,22 @@ struct TitleView: View {
         }
         .buttonStyle(ChunkyButtonStyle(fill: Palette.yellow, corner: 22, depth: 8, border: 4))
         .frame(height: 92)
+    }
+
+    private var stimButton: some View {
+        Button {
+            SoundEngine.shared.play(.gacha)
+            Haptics.impact(.heavy)
+            onStim()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "brain.head.profile").font(.system(size: 20, weight: .black))
+                Text("刺激モード").font(AppFont.display(22))
+                Text("ショップで脳汁を買え").font(AppFont.body(11)).opacity(0.8)
+            }
+        }
+        .buttonStyle(ChunkyButtonStyle(fill: Palette.pink, textColor: .white, corner: 18, depth: 6))
+        .frame(height: 58)
     }
 
     private var difficultyPicker: some View {
